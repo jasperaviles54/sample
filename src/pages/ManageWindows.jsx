@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient.js';
+import QRModal from '../components/QRModal.jsx';
 
 export default function ManageWindows() {
   const [branches, setBranches] = useState([]);
@@ -11,6 +12,7 @@ export default function ManageWindows() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ branch_id: '', name: '', code: '' });
   const [saving, setSaving] = useState(false);
+  const [qrFor, setQrFor] = useState(null);
 
   async function loadBranches() {
     const { data, error } = await supabase
@@ -92,11 +94,16 @@ export default function ManageWindows() {
     else loadWindows();
   }
 
+  function qrUrl(w) {
+    return `${window.location.origin}/survey?branch=${w.branch_id}&window=${w.id}`;
+  }
+
   return (
     <>
       <h2>Department Windows</h2>
       <p className="subtitle">
-        Each window (Registrar, Cashier, etc.) belongs to a branch and appears in the survey form.
+        Each window (Registrar, Cashier, etc.) belongs to a branch. Print its QR
+        and post it at the counter — scanning opens the survey pre-filled.
       </p>
 
       {err && <div className="error-msg">{err}</div>}
@@ -167,33 +174,45 @@ export default function ManageWindows() {
       ) : windows.length === 0 ? (
         <div className="empty">No windows yet. Add one with the button above.</div>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Branch</th>
-              <th>Name</th>
-              <th>Code</th>
-              <th>Created</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {windows.map((w) => (
-              <tr key={w.id}>
-                <td>{w.branches?.name ?? '—'}</td>
-                <td><strong>{w.name}</strong></td>
-                <td>{w.code}</td>
-                <td>{new Date(w.created_at).toLocaleDateString()}</td>
-                <td>
-                  <div className="row-actions">
-                    <button className="btn btn-ghost" onClick={() => startEdit(w)}>Edit</button>
-                    <button className="btn btn-danger" onClick={() => remove(w.id)}>Delete</button>
-                  </div>
-                </td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Branch</th>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Created</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {windows.map((w) => (
+                <tr key={w.id}>
+                  <td>{w.branches?.name ?? '—'}</td>
+                  <td><strong>{w.name}</strong></td>
+                  <td>{w.code}</td>
+                  <td>{new Date(w.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="btn btn-ghost" onClick={() => setQrFor(w)}>QR</button>
+                      <button className="btn btn-ghost" onClick={() => startEdit(w)}>Edit</button>
+                      <button className="btn btn-danger" onClick={() => remove(w.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {qrFor && (
+        <QRModal
+          title={qrFor.name}
+          subtitle={`${qrFor.branches?.name ?? ''} · scan to leave feedback`}
+          url={qrUrl(qrFor)}
+          onClose={() => setQrFor(null)}
+        />
       )}
     </>
   );

@@ -1,57 +1,79 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../supabaseClient.js';
 
 export default function SurveyPage() {
-  const [branches, setBranches] = useState([]);
+  const [params] = useSearchParams();
+  const branchParam = params.get('branch') || '';
+  const windowParam = params.get('window') || '';
+
+  const [loading, setLoading] = useState(true);
+  const [branch, setBranch] = useState(null);
+  const [lockedWindow, setLockedWindow] = useState(null);
   const [windows, setWindows] = useState([]);
-  const [branchId, setBranchId] = useState('');
   const [windowId, setWindowId] = useState('');
+
   const [rating, setRating] = useState('');
   const [comments, setComments] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [err, setErr] = useState('');
+  const [gateMessage, setGateMessage] = useState('');
 
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from('branches')
-        .select('id, name, code')
-        .order('name');
-      if (error) setErr(error.message);
-      else setBranches(data ?? []);
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!branchId) {
-      setWindows([]);
-      setWindowId('');
+    if (!branchParam) {
+      setGateMessage('Please scan the QR code at your service window to start.');
+      setLoading(false);
       return;
     }
     (async () => {
-      const { data, error } = await supabase
-        .from('department_windows')
-        .select('id, name, code')
-        .eq('branch_id', branchId)
-        .order('name');
-      if (error) setErr(error.message);
-      else setWindows(data ?? []);
-      setWindowId('');
+      const { data: b } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('id', branchParam)
+        .maybeSingle();
+      if (!b) {
+        setGateMessage('This survey link is invalid or has been removed.');
+        setLoading(false);
+        return;
+      }
+      setBranch(b);
+
+      if (windowParam) {
+        const { data: w } = await supabase
+          .from('department_windows')
+          .select('id, name, branch_id')
+          .eq('id', windowParam)
+          .maybeSingle();
+        if (!w || w.branch_id !== b.id) {
+          setGateMessage('This survey link is invalid or has been removed.');
+          setLoading(false);
+          return;
+        }
+        setLockedWindow(w);
+        setWindowId(w.id);
+      } else {
+        const { data: ws } = await supabase
+          .from('department_windows')
+          .select('id, name')
+          .eq('branch_id', b.id)
+          .order('name');
+        setWindows(ws ?? []);
+      }
+      setLoading(false);
     })();
-  }, [branchId]);
+  }, [branchParam, windowParam]);
 
   async function handleSubmit(e) {
     e.preventDefault();
     setErr('');
-    if (!branchId || !windowId || !rating) {
-      setErr('Please pick a branch, a window, and a rating.');
+    if (!branch || !windowId || !rating) {
+      setErr('Please pick a window and a rating.');
       return;
     }
     setSubmitting(true);
     const { error } = await supabase.from('surveys').insert({
-      branch_id: branchId,
+      branch_id: branch.id,
       window_id: windowId,
       rating,
       comments: comments.trim() || null
@@ -68,6 +90,30 @@ export default function SurveyPage() {
     setRating('');
     setComments('');
     setSubmitted(false);
+    if (!lockedWindow) setWindowId('');
+  }
+
+  if (loading) {
+    return (
+      <div className="survey-wrap">
+        <div className="survey-card"><p style={{ textAlign: 'center', color: '#6b7280' }}>Loading…</p></div>
+      </div>
+    );
+  }
+
+  if (gateMessage) {
+    return (
+      <div className="survey-wrap">
+        <div className="survey-card success">
+          <div className="emoji">📱</div>
+          <h2>Scan to leave feedback</h2>
+          <p>{gateMessage}</p>
+          <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12 }}>
+            <Link to="/login">Admin sign in</Link>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (submitted) {
@@ -93,29 +139,21 @@ export default function SurveyPage() {
 
         <div className="field">
           <label>Branch</label>
-          <select value={branchId} onChange={(e) => setBranchId(e.target.value)} required>
-            <option value="">— Select branch —</option>
-            {branches.map((b) => (
-              <option key={b.id} value={b.id}>{b.name}</option>
-            ))}
-          </select>
+          <div className="locked-field">{branch.name}</div>
         </div>
 
         <div className="field">
           <label>Department / Window</label>
-          <select
-            value={windowId}
-            onChange={(e) => setWindowId(e.target.value)}
-            disabled={!branchId}
-            required
-          >
-            <option value="">
-              {branchId ? '— Select window —' : 'Pick a branch first'}
-            </option>
-            {windows.map((w) => (
-              <option key={w.id} value={w.id}>{w.name}</option>
-            ))}
-          </select>
+          {lockedWindow ? (
+            <div className="locked-field">{lockedWindow.name}</div>
+          ) : (
+            <select value={windowId} onChange={(e) => setWindowId(e.target.value)} required>
+              <option value="">— Select window —</option>
+              {windows.map((w) => (
+                <option key={w.id} value={w.id}>{w.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="rating-row">
@@ -150,10 +188,6 @@ export default function SurveyPage() {
         <button className="btn" type="submit" disabled={submitting} style={{ width: '100%' }}>
           {submitting ? 'Submitting…' : 'Submit feedback'}
         </button>
-
-        <div style={{ textAlign: 'center', marginTop: 16, fontSize: 12 }}>
-          <Link to="/login">Admin sign in</Link>
-        </div>
       </form>
     </div>
   );

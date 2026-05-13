@@ -122,32 +122,34 @@ export default function Reports() {
       ) : rows.length === 0 ? (
         <div className="empty">No responses match the current filters.</div>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Branch</th>
-              <th>Window</th>
-              <th>Rating</th>
-              <th>Comments</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{new Date(r.created_at).toLocaleString()}</td>
-                <td>{r.branch_name}</td>
-                <td>{r.window_name}</td>
-                <td>
-                  <span className={`badge ${r.rating}`}>
-                    {r.rating === 'happy' ? '😊 Satisfied' : '😞 Not satisfied'}
-                  </span>
-                </td>
-                <td style={{ maxWidth: 380, whiteSpace: 'pre-wrap' }}>{r.comments || '—'}</td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Branch</th>
+                <th>Window</th>
+                <th>Rating</th>
+                <th>Comments</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{new Date(r.created_at).toLocaleString()}</td>
+                  <td>{r.branch_name}</td>
+                  <td>{r.window_name}</td>
+                  <td>
+                    <span className={`badge ${r.rating}`}>
+                      {r.rating === 'happy' ? '😊 Satisfied' : '😞 Not satisfied'}
+                    </span>
+                  </td>
+                  <td style={{ maxWidth: 380, whiteSpace: 'pre-wrap' }}>{r.comments || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </>
   );

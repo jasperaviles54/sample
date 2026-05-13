@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient.js';
+import QRModal from '../components/QRModal.jsx';
 
 export default function ManageBranches() {
   const [branches, setBranches] = useState([]);
@@ -9,6 +10,7 @@ export default function ManageBranches() {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', code: '', address: '' });
   const [saving, setSaving] = useState(false);
+  const [qrFor, setQrFor] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -74,6 +76,10 @@ export default function ManageBranches() {
     else load();
   }
 
+  function qrUrl(branchId) {
+    return `${window.location.origin}/survey?branch=${branchId}`;
+  }
+
   return (
     <>
       <h2>Branches</h2>
@@ -130,33 +136,45 @@ export default function ManageBranches() {
       ) : branches.length === 0 ? (
         <div className="empty">No branches yet. Add your first one.</div>
       ) : (
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Code</th>
-              <th>Address</th>
-              <th>Created</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {branches.map((b) => (
-              <tr key={b.id}>
-                <td><strong>{b.name}</strong></td>
-                <td>{b.code}</td>
-                <td>{b.address || '—'}</td>
-                <td>{new Date(b.created_at).toLocaleDateString()}</td>
-                <td>
-                  <div className="row-actions">
-                    <button className="btn btn-ghost" onClick={() => startEdit(b)}>Edit</button>
-                    <button className="btn btn-danger" onClick={() => remove(b.id)}>Delete</button>
-                  </div>
-                </td>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Address</th>
+                <th>Created</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {branches.map((b) => (
+                <tr key={b.id}>
+                  <td><strong>{b.name}</strong></td>
+                  <td>{b.code}</td>
+                  <td>{b.address || '—'}</td>
+                  <td>{new Date(b.created_at).toLocaleDateString()}</td>
+                  <td>
+                    <div className="row-actions">
+                      <button className="btn btn-ghost" onClick={() => setQrFor(b)}>QR</button>
+                      <button className="btn btn-ghost" onClick={() => startEdit(b)}>Edit</button>
+                      <button className="btn btn-danger" onClick={() => remove(b.id)}>Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {qrFor && (
+        <QRModal
+          title={qrFor.name}
+          subtitle="Branch survey · customer picks the window"
+          url={qrUrl(qrFor.id)}
+          onClose={() => setQrFor(null)}
+        />
       )}
     </>
   );
